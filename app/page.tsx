@@ -111,12 +111,6 @@ export default function Home() {
           </p>
         </>
       )}
-
-      {sendModal && isConnected && (
-        <SendModal initialToken={sendToken} balances={balances} prefillAddress={prefillAddr} formatPrice={formatPrice}
-          onClose={() => { setSendModal(false); setPrefillAddr(""); }}
-          onSuccess={() => { setSendModal(false); setTimeout(refetch, 3000); }} />
-      )}
       {batchModal && isConnected && <BatchSendModal contacts={contacts} onClose={() => setBatchModal(false)} />}
     </main>
   );
