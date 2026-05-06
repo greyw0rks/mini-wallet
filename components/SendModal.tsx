@@ -12,6 +12,7 @@ interface SendModalProps {
   onClose: () => void;
   onSuccess: () => void;
   prefillAddress?: string;
+  formatPrice?: (symbol: string) => string;  // ← add this line
 }
 
 export function SendModal({ initialToken, balances, onClose, onSuccess, prefillAddress = "" }: SendModalProps) {
