@@ -3,8 +3,13 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CeloWallet — Web3 Wallet on Celo",
-  description: "Send and receive CELO, USDm, USDC, USDT and more on the Celo network.",
+  title: "MiniWallet — Web3 Wallet on Celo",
+  description:
+    "Send and receive CELO, USDm, USDC, USDT and more on the Celo network. Works with MiniPay, MetaMask, and any EIP-1193 wallet.",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
