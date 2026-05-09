@@ -45,25 +45,21 @@ export function useSend() {
     try {
       let hash: `0x${string}`;
 
-      if (token.native) {
-        // Native CELO send
-        hash = await sendTransactionAsync({
-          to,
-          value: parseEther(amount),
-          // MiniPay requires legacy (pre-EIP-1559) transactions
-          ...(isMiniPay ? { type: "legacy" as const } : {}),
-        });
-      } else {
-        // ERC-20 transfer
-        hash = await writeContractAsync({
-          address: token.address!,
-          abi: erc20Abi,
-          functionName: "transfer",
-          args: [to, parseUnits(amount, token.decimals)],
-          // MiniPay requires legacy (pre-EIP-1559) transactions
-          ...(isMiniPay ? { type: "legacy" as const } : {}),
-        });
-      }
+     if (token.native) {
+  hash = await sendTransactionAsync({
+    to,
+    value: parseEther(amount),
+    ...(isMiniPay ? { type: "legacy" as const, gasPrice: undefined } : {}),
+  });
+} else {
+  hash = await writeContractAsync({
+    address: token.address!,
+    abi: erc20Abi,
+    functionName: "transfer",
+    args: [to, parseUnits(amount, token.decimals)],
+    ...(isMiniPay ? { type: "legacy" as const, gasPrice: undefined } : {}),
+  });
+}
 
       setTxHash(hash);
       setStatus({ type: "success", hash });

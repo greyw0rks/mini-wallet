@@ -4,13 +4,12 @@ import { injected } from "wagmi/connectors";
 
 export const wagmiConfig = createConfig({
   chains: [celo],
-  connectors: [
-    injected({
-      shimDisconnect: true,
-    }),
-  ],
+  connectors: [injected()],
   transports: {
-    [celo.id]: http("https://forno.celo.org"),
+    [celo.id]: http("https://forno.celo.org", {
+      // Let MiniPay handle gas internally
+      fetchOptions: {},
+    }),
   },
   ssr: true,
 });
