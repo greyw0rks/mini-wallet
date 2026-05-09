@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useSendTransaction, useWriteContract } from "wagmi";
-import { parseEther, parseUnits, erc20Abi } from "viem";
+import { parseEther, parseUnits, erc20Abi, encodeFunctionData } from "viem";
 import type { Token } from "@/lib/tokens";
 
-// cUSD address on Celo mainnet — used as fee currency
-// This means gas is paid in cUSD, not CELO
+// cUSD — used as feeCurrency on non-MiniPay Celo wallets
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as `0x${string}`;
 
 export type SendStatus =
@@ -14,6 +13,28 @@ export type SendStatus =
   | { type: "pending" }
   | { type: "success"; hash: `0x${string}` }
   | { type: "error"; message: string };
+
+function isMiniPayWallet() {
+  return typeof window !== "undefined" && !!window.ethereum?.isMiniPay;
+}
+
+// MiniPay requires bare-minimum params — no from, no type, no feeCurrency.
+// It handles gas and fee currency internally.
+async function miniPaySend(params: {
+  to: string;
+  value?: string;    // hex
+  data?: string;     // hex
+}): Promise<`0x${string}`> {
+  const tx: Record<string, string> = { to: params.to };
+  if (params.value) tx.value = params.value;
+  if (params.data)  tx.data  = params.data;
+
+  const hash = await window.ethereum!.request({
+    method: "eth_sendTransaction",
+    params: [tx],
+  });
+  return hash as `0x${string}`;
+}
 
 export function useSend() {
   const [status, setStatus] = useState<SendStatus>({ type: "idle" });
@@ -34,28 +55,44 @@ export function useSend() {
 
     try {
       let hash: `0x${string}`;
-
-      // feeCurrency tells Celo to pay gas in cUSD instead of CELO.
-      // This is a Celo-specific EIP-1559 extension (CIP-64).
-      // Supported natively by MiniPay, MetaMask Celo, and Rabby on Celo.
-      const celoTxExtras = {
-        feeCurrency: CUSD,
-      } as const;
+      const miniPay = isMiniPayWallet();
 
       if (token.native) {
-        hash = await sendTransactionAsync({
-          to,
-          value: parseEther(amount),
-          ...celoTxExtras,
-        });
+        const value = parseEther(amount);
+        const valueHex = `0x${value.toString(16)}` as const;
+
+        if (miniPay) {
+          // MiniPay: send bare tx, no from/type/feeCurrency
+          hash = await miniPaySend({ to, value: valueHex });
+        } else {
+          // Other Celo wallets: use feeCurrency so gas is paid in cUSD
+          hash = await sendTransactionAsync({
+            to,
+            value,
+            feeCurrency: CUSD,
+          } as any);
+        }
       } else {
-        hash = await writeContractAsync({
-          address: token.address!,
+        // ERC-20 transfer
+        const rawAmount = parseUnits(amount, token.decimals);
+        const data = encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
-          args: [to, parseUnits(amount, token.decimals)],
-          ...celoTxExtras,
+          args: [to, rawAmount],
         });
+
+        if (miniPay) {
+          // MiniPay: call contract with bare data, no from/type/feeCurrency
+          hash = await miniPaySend({ to: token.address!, data });
+        } else {
+          hash = await writeContractAsync({
+            address: token.address!,
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [to, rawAmount],
+            feeCurrency: CUSD,
+          } as any);
+        }
       }
 
       setStatus({ type: "success", hash });
