@@ -1,13 +1,33 @@
 {
-  "name": "mini-wallet",
+  "name": "@greyw0rks/mini-wallet",
   "version": "0.1.0",
-  "private": true,
+  "description": "MiniPay-compatible wallet UI for Celo — send, batch, contacts, balances",
+  "private": false,
+  "files": [
+    "app",
+    "components",
+    "contracts",
+    "hooks",
+    "lib",
+    "public",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
+  "keywords": [
+    "celo", "minipay", "wallet", "web3",
+    "wagmi", "viem", "batch-send", "blockchain"
+  ],
+  "author": "greyw0rks",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
   "dependencies": {
     "next": "14.2.5",
     "react": "^18",
@@ -25,5 +45,11 @@
     "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.0.1",
     "typescript": "^5"
-  }
+  },
+ "repository": {
+  "type": "git",
+  "url": "https://github.com/greyw0rks/mini-wallet.git"
+},
+"bugs": { "url": "https://github.com/greyw0rks/mini-wallet/issues" },
+"homepage": "https://github.com/greyw0rks/mini-wallet#readme"
 }
