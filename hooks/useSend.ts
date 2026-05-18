@@ -19,7 +19,6 @@ export function selectFeeCurrency(
     (f) => f.symbol === token.symbol || f.address === token.address
   );
   if (sameToken) return sameToken;
-
   for (const fc of FEE_CURRENCIES) {
     const bal = balances[fc.symbol];
     if (bal !== undefined && bal > 0n) return fc;
@@ -29,6 +28,45 @@ export function selectFeeCurrency(
 
 function isMiniPay() {
   return typeof window !== "undefined" && !!window.ethereum?.isMiniPay;
+}
+
+/** Extract a human-readable message from any error shape MiniPay/wagmi throws */
+function extractError(err: unknown): string {
+  if (!err) return "Transaction failed.";
+
+  // MiniPay throws plain objects: { code: 4001, message: "..." }
+  if (typeof err === "object") {
+    const e = err as Record<string, unknown>;
+
+    // User rejected
+    if (e.code === 4001 || e.code === "ACTION_REJECTED") return "Transaction rejected.";
+
+    // Has a message string
+    if (typeof e.message === "string" && e.message.length > 0) {
+      const msg = e.message;
+      if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction rejected.";
+      if (msg.includes("insufficient funds")) return "Insufficient funds for gas.";
+      if (msg.includes("nonce")) return "Nonce error — try again.";
+      return msg.slice(0, 100);
+    }
+
+    // Nested error data
+    if (typeof e.data === "object" && e.data !== null) {
+      const d = e.data as Record<string, unknown>;
+      if (typeof d.message === "string") return d.message.slice(0, 100);
+    }
+
+    // Last resort — stringify but catch circular refs
+    try {
+      const str = JSON.stringify(err);
+      if (str !== "{}") return str.slice(0, 100);
+    } catch {}
+  }
+
+  if (typeof err === "string") return err.slice(0, 100);
+  if (err instanceof Error)    return err.message.slice(0, 100);
+
+  return "Transaction failed. Check your balance and try again.";
 }
 
 export type SendStatus =
@@ -57,21 +95,17 @@ export function useSend() {
 
     try {
       let hash: `0x${string}`;
-      const miniPay  = isMiniPay();
-      const feeCurr  = selectFeeCurrency(token, balances);
+      const miniPay = isMiniPay();
+      const feeCurr = selectFeeCurrency(token, balances);
 
       if (miniPay) {
-        // ── MiniPay path ──────────────────────────────────────────────────
-        // Only to + value/data. MiniPay handles gas internally using cUSD.
-        // Do NOT pass: from, type, feeCurrency, gasPrice, maxFeePerGas
+        // MiniPay: bare minimum only — to + value or data
+        // MiniPay handles gas in cUSD automatically
         if (token.native) {
           const value = parseEther(amount);
           hash = await window.ethereum!.request({
             method: "eth_sendTransaction",
-            params: [{
-              to,
-              value: `0x${value.toString(16)}`,
-            }],
+            params: [{ to, value: `0x${value.toString(16)}` }],
           }) as `0x${string}`;
         } else {
           const data = encodeFunctionData({
@@ -81,15 +115,11 @@ export function useSend() {
           });
           hash = await window.ethereum!.request({
             method: "eth_sendTransaction",
-            params: [{
-              to: token.address!,
-              data,
-            }],
+            params: [{ to: token.address!, data }],
           }) as `0x${string}`;
         }
       } else {
-        // ── Non-MiniPay path (MetaMask, Rabby on Celo) ───────────────────
-        // Use feeCurrency so gas is paid in stablecoins
+        // MetaMask / Rabby on Celo — use feeCurrency for gas abstraction
         const feeExt = feeCurr ? { feeCurrency: feeCurr.address } : {};
 
         if (token.native) {
@@ -111,12 +141,7 @@ export function useSend() {
 
       setStatus({ type: "success", hash });
     } catch (err: unknown) {
-      const raw = err instanceof Error ? err.message : String(err);
-      // Surface a clean message
-      const message = raw.includes("user rejected")
-        ? "Transaction rejected."
-        : raw.slice(0, 120);
-      setStatus({ type: "error", message });
+      setStatus({ type: "error", message: extractError(err) });
     }
   }
 
