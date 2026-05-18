@@ -80,6 +80,8 @@ export function useSend() {
   const { sendTransactionAsync } = useSendTransaction();
   const { writeContractAsync }   = useWriteContract();
 
+  // Add at the top of your send function:
+if (!address) throw new Error('Wallet not connected')
   async function send({
     token,
     to,
@@ -115,7 +117,7 @@ export function useSend() {
           });
           hash = await window.ethereum!.request({
             method: "eth_sendTransaction",
-            params: [{ to: token.address!, data }],
+            params: [{ to, value }],
           }) as `0x${string}`;
         }
       } else {
